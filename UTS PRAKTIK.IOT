@@ -1,0 +1,323 @@
+[
+    {
+        "id": "tab_uts_iot",
+        "type": "tab",
+        "label": "UTS IoT - Monitoring Suhu & Kelembapan",
+        "disabled": false,
+        "info": "Flow UTS Praktik Sistem Monitoring Suhu & Kelembapan"
+    },
+    {
+        "id": "emqx_public_broker",
+        "type": "mqtt-broker",
+        "name": "EMQX Public Broker",
+        "broker": "broker.emqx.io",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true
+    },
+    {
+        "id": "mqtt_in_node",
+        "type": "mqtt in",
+        "z": "tab_uts_iot",
+        "name": "MQTT Subscribe (Ketentuan 6)",
+        "topic": "uts-iot/nama_mahasiswa/dht22",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "emqx_public_broker",
+        "nl": false,
+        "rap": true,
+        "inputs": 0,
+        "x": 170,
+        "y": 220,
+        "wires": [
+            [
+                "json_parse_node"
+            ]
+        ]
+    },
+    {
+        "id": "json_parse_node",
+        "type": "json",
+        "z": "tab_uts_iot",
+        "name": "Parse JSON",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 410,
+        "y": 220,
+        "wires": [
+            [
+                "func_process_data"
+            ]
+        ]
+    },
+    {
+        "id": "func_process_data",
+        "type": "function",
+        "z": "tab_uts_iot",
+        "name": "Processing & Threshold Logic",
+        "func": "// 1. Mengambil Nilai Suhu & Kelembapan\nlet temp = parseFloat(msg.payload.temperature);\nlet humidity = parseFloat(msg.payload.humidity);\n\n// 2. Standar Threshold Kenyamanan Termal\n// Suhu Normal: 20°C - 28°C | Kelembapan Normal: 40% - 60%\nlet tempNormal = (temp >= 20 && temp <= 28);\nlet humNormal = (humidity >= 40 && humidity <= 60);\n\n// 3. Evaluasi Status\nlet overallStatus = (tempNormal && humNormal) ? \"NORMAL\" : \"ABNORMAL\";\nlet notifMessage = \"\";\n\nif (overallStatus === \"ABNORMAL\") {\n    let alertList = [];\n    if (!tempNormal) alertList.push(`Suhu di luar batas (${temp}°C)`);\n    if (!humNormal) alertList.push(`Kelembapan di luar batas (${humidity}%)`);\n    notifMessage = \"⚠️ WARNING: \" + alertList.join(\" & \");\n} else {\n    notifMessage = \"✅ Kondisi Lingkungan Ideal / Normal.\";\n}\n\n// 4. Output ke Dashboard Node-RED\nreturn [\n    { payload: temp },         // Output 1: Suhu\n    { payload: humidity },     // Output 2: Kelembapan\n    { payload: overallStatus },// Output 3: Status (NORMAL/ABNORMAL)\n    { payload: notifMessage }  // Output 4: Notifikasi Pop-up\n];",
+        "outputs": 4,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 220,
+        "wires": [
+            [
+                "ui_gauge_temp",
+                "ui_chart_temp"
+            ],
+            [
+                "ui_gauge_hum",
+                "ui_chart_hum"
+            ],
+            [
+                "ui_text_status"
+            ],
+            [
+                "ui_toast_notif"
+            ]
+        ]
+    },
+    {
+        "id": "inject_normal",
+        "type": "inject",
+        "z": "tab_uts_iot",
+        "name": "Test Data Normal (24°C, 50%)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"temperature\": 24.5, \"humidity\": 50.0}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 120,
+        "wires": [
+            [
+                "json_parse_node"
+            ]
+        ]
+    },
+    {
+        "id": "inject_abnormal",
+        "type": "inject",
+        "z": "tab_uts_iot",
+        "name": "Test Data Abnormal (33°C, 75%)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"temperature\": 33.2, \"humidity\": 75.0}",
+        "payloadType": "json",
+        "x": 200,
+        "y": 160,
+        "wires": [
+            [
+                "json_parse_node"
+            ]
+        ]
+    },
+    {
+        "id": "ui_gauge_temp",
+        "type": "ui_gauge",
+        "z": "tab_uts_iot",
+        "name": "Gauge Suhu",
+        "group": "dashboard_group_1",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "gtype": "gage",
+        "title": "Suhu (°C)",
+        "label": "°C",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 50,
+        "colors": [
+            "#00b5ad",
+            "#5dbb63",
+            "#ca3c25"
+        ],
+        "seg1": "20",
+        "seg2": "28",
+        "x": 950,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "ui_gauge_hum",
+        "type": "ui_gauge",
+        "z": "tab_uts_iot",
+        "name": "Gauge Kelembapan",
+        "group": "dashboard_group_1",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "gtype": "gage",
+        "title": "Kelembapan (%)",
+        "label": "%",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 100,
+        "colors": [
+            "#ca3c25",
+            "#5dbb63",
+            "#ca3c25"
+        ],
+        "seg1": "40",
+        "seg2": "60",
+        "x": 970,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "ui_chart_temp",
+        "type": "ui_chart",
+        "z": "tab_uts_iot",
+        "name": "Grafik Suhu & Kelembapan",
+        "group": "dashboard_group_2",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "label": "Grafik Riwayat Suhu",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "50",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e"
+        ],
+        "x": 990,
+        "y": 170,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "ui_chart_hum",
+        "type": "ui_chart",
+        "z": "tab_uts_iot",
+        "name": "Grafik Kelembapan",
+        "group": "dashboard_group_2",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "label": "Grafik Riwayat Kelembapan",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "100",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#2ca02c",
+            "#98df8a",
+            "#d62728"
+        ],
+        "x": 970,
+        "y": 230,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "ui_text_status",
+        "type": "ui_text",
+        "z": "tab_uts_iot",
+        "group": "dashboard_group_1",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "name": "Status Teks",
+        "label": "STATUS LINGKUNGAN: ",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 950,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "ui_toast_notif",
+        "type": "ui_toast",
+        "z": "tab_uts_iot",
+        "position": "top right",
+        "displayTime": "4",
+        "highlight": "",
+        "sendDismiss": false,
+        "outputs": 0,
+        "ok": "OK",
+        "cancel": "",
+        "raw": false,
+        "topic": "Notifikasi Threshold",
+        "name": "Notification Toast",
+        "x": 970,
+        "y": 330,
+        "wires": []
+    },
+    {
+        "id": "dashboard_group_1",
+        "type": "ui_group",
+        "name": "Indikator & Gauges",
+        "tab": "dashboard_tab_1",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "dashboard_group_2",
+        "type": "ui_group",
+        "name": "Grafik Realtime",
+        "tab": "dashboard_tab_1",
+        "order": 2,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "dashboard_tab_1",
+        "type": "ui_tab",
+        "name": "UTS Monitoring Suhu & Kelembapan",
+        "icon": "dashboard",
+        "order": 1
+    }
+]
